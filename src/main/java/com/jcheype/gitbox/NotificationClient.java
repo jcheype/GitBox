@@ -10,6 +10,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.util.UUID;
@@ -19,60 +20,72 @@ import java.util.UUID;
  * User: mush
  * Date: 7/27/11
  * Time: 10:53 PM
- * To change this template use File | Settings | File Templates.
  */
 public class NotificationClient implements Runnable {
+    private static final org.slf4j.Logger logger = LoggerFactory.getLogger(NotificationClient.class);
     private final String uuid = UUID.randomUUID().toString();
     private final String notifUrl;
+    private final Thread thread;
 
     public NotificationClient(String notifUrl) {
         this.notifUrl = notifUrl;
-        System.out.println("NAME: " + uuid);
-        new Thread(this).start();
+        logger.info("NAME: " + uuid);
+        thread = new Thread(this);
+    }
+
+    public void start() {
+        thread.start();
+    }
+
+    private void waitNotification() throws InterruptedException {
+        HttpClient httpclient = new DefaultHttpClient();
+
+        HttpGet httpget = new HttpGet(notifUrl);
+        ObjectMapper mapper = new ObjectMapper(); // can reuse, share globally
+        InputStream instream = null;
+        try {
+            HttpResponse response = httpclient.execute(httpget);
+            HttpEntity entity = response.getEntity();
+            instream = entity.getContent();
+            JsonNode rootNode = mapper.readValue(instream, JsonNode.class);
+            onNotification(rootNode);
+        } catch (Exception e) {
+            logger.error("notification server is unreachable, retry in 10s");
+            logger.debug("details", e);
+            Thread.sleep(10000);
+        } finally {
+            Closeables.closeQuietly(instream);
+            httpclient.getConnectionManager().shutdown();
+        }
     }
 
     @Override
     public void run() {
-        while (true) {
-            HttpClient httpclient = new DefaultHttpClient();
-
-            HttpGet httpget = new HttpGet(notifUrl);
-            ObjectMapper mapper = new ObjectMapper(); // can reuse, share globally
-            InputStream instream = null;
-            try {
-                HttpResponse response = httpclient.execute(httpget);
-                HttpEntity entity = response.getEntity();
-                instream = entity.getContent();
-                JsonNode rootNode = mapper.readValue(instream, JsonNode.class);
-                onNotification(rootNode);
-            } catch (Exception e) {
-                try {
-                    Thread.sleep(10000);
-                } catch (InterruptedException e1) {
-                    e1.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-                }
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-            } finally {
-                Closeables.closeQuietly(instream);
-                httpclient.getConnectionManager().shutdown();
+        try {
+            while (!this.thread.isInterrupted()) {
+                waitNotification();
             }
+        } catch (InterruptedException e) {
+            logger.info("client thread interrupted");
         }
     }
 
     public void publish() {
-        System.out.println("publish:" + notifUrl);
+        logger.debug("publish:" + notifUrl);
         HttpClient httpclient = new DefaultHttpClient();
         HttpPost post = new HttpPost(notifUrl);
         try {
             post.setEntity(new StringEntity("{\"from\" : \"" + uuid + "\"}", "UTF-8"));
             HttpResponse response = httpclient.execute(post);
+            if (response.getStatusLine().getStatusCode() >= 400) {
+                logger.error("error while posting notification: " + response.getStatusLine().getStatusCode());
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
     protected void onNotification(JsonNode rootNode) {
-
     }
 
     public String getUuid() {

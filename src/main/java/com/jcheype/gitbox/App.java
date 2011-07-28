@@ -4,13 +4,19 @@ import net.contentobjects.jnotify.JNotify;
 import net.contentobjects.jnotify.JNotifyListener;
 import org.apache.commons.cli.*;
 import org.codehaus.jackson.JsonNode;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
 
 public class App {
+    private static final org.slf4j.Logger logger = LoggerFactory.getLogger(App.class);
+
     static {
         System.setProperty("java.library.path", ".");
     }
 
     private static NotificationClient notificationClient = null;
+    private static GitBox gitBox;
 
     private static void showHelp(Options options) {
         HelpFormatter formatter = new HelpFormatter();
@@ -33,13 +39,13 @@ public class App {
         }
 
         if (cmd.getArgs().length < 1) {
-            System.out.println("Missing REPO_FOLDER arg");
+            System.err.println("Missing REPO_FOLDER arg");
             showHelp(options);
             System.exit(1);
         }
 
         if (!cmd.hasOption("remote")) {
-            System.out.println("Missing remote repository url");
+            System.err.println("Missing remote repository url");
             showHelp(options);
             System.exit(1);
         }
@@ -51,43 +57,53 @@ public class App {
 
 
         if (cmd.hasOption("clone")) {
-            GitBox.cloneGit(remote, repo);
+            File repoFile = new File(repo);
+            if (repoFile.exists())
+                GitBox.cloneGit(remote, repoFile);
+            else {
+                System.err.println("REPO_FOLDER must exist");
+                showHelp(options);
+                System.exit(1);
+            }
         }
 
         if (!cmd.hasOption("notification")) {
-            System.out.println("Missing notification server url");
+            System.err.println("Missing notification server url");
             showHelp(options);
             System.exit(1);
         }
         String notifServer = cmd.getOptionValue("notification");
 
-        System.out.println("notifServer: " + notifServer);
-        final GitBox gitBox = new GitBox(repo) {
+        logger.info("notifServer: " + notifServer);
+        gitBox = new GitBox(repo) {
             @Override
             protected void onUpdate() {
-                System.out.println("onUpdate");
+                logger.info("onUpdate");
                 if (notificationClient != null) notificationClient.publish();
             }
         };
 
-        if(!notifServer.endsWith("/")){
+        if (!notifServer.endsWith("/")) {
             notifServer += "/";
         }
-        System.out.println(notifServer + remoteSha1);
+        logger.info(notifServer + remoteSha1);
         notificationClient = new NotificationClient(notifServer + remoteSha1) {
             @Override
             protected void onNotification(JsonNode rootNode) {
                 String from = rootNode.path("from").getTextValue();
-                System.out.println("notification from: " + from);
+                logger.info("notification from: " + from);
                 if (!getUuid().equals(from)) {
                     try {
                         gitBox.pull();
                     } catch (Exception e) {
-                        e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                        logger.error("cannot make pull", e);
                     }
                 }
             }
         };
+
+        gitBox.start();
+        notificationClient.start();
 
         int mask = JNotify.FILE_CREATED |
                 JNotify.FILE_DELETED |
@@ -100,7 +116,7 @@ public class App {
 
         boolean res = JNotify.removeWatch(watchID);
         if (!res) {
-            System.out.println("invalid watch ID specified.");
+            logger.error("invalid watch ID specified.");
         }
     }
 
@@ -117,7 +133,7 @@ public class App {
                 return;
             }
             String msg = "renamed: " + oldName + " -> " + newName;
-            System.out.println(msg);
+            logger.debug(msg);
             gitBox.updated();
         }
 
@@ -126,7 +142,7 @@ public class App {
                 return;
             }
             String msg = "modified: " + name;
-            System.out.println(msg);
+            logger.debug(msg);
             gitBox.updated();
         }
 
@@ -135,7 +151,7 @@ public class App {
                 return;
             }
             String msg = "deleted: " + name;
-            System.out.println(msg);
+            logger.debug(msg);
             gitBox.updated();
         }
 
@@ -144,7 +160,7 @@ public class App {
                 return;
             }
             String msg = "created: " + name;
-            System.out.println(msg);
+            logger.debug(msg);
             gitBox.updated();
         }
     }

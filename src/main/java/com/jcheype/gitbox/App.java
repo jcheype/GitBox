@@ -49,6 +49,7 @@ public class App {
         Options options = new Options();
 
         options.addOption("n", "notification", true, "set notification server url");
+        options.addOption("c", "clone", true, "set repository to clone");
         options.addOption("h", "help", false, "print this help");
 
         CommandLineParser parser = new PosixParser();
@@ -64,6 +65,11 @@ public class App {
             System.exit(1);
         }
         String repo = cmd.getArgs()[0];
+
+        if (cmd.hasOption("clone")) {
+            String cloneUrl = cmd.getOptionValue("clone");
+            GitBox.cloneGit(cloneUrl, repo);
+        }
 
         if (!cmd.hasOption("notification")) {
             System.out.println("Missing notification server url");

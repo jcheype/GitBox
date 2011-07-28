@@ -1,6 +1,5 @@
 package com.jcheype.gitbox;
 
-import net.contentobjects.jnotify.JNotify;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.PullResult;
 import org.eclipse.jgit.api.errors.*;
@@ -36,7 +35,6 @@ public class GitBox {
                 .build();
 
         git = new Git(repository);
-        //Git git = Git.cloneRepository().setURI("mush@www.jcheype.com:repo/mush.git").setDirectory(new File("/Users/mush/tmp/jgit/")).call();
         pull();
         initTimer();
     }

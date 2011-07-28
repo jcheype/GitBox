@@ -67,7 +67,7 @@ public class NotificationClient implements Runnable {
             post.setEntity(new StringEntity("{\"from\" : \"" + uuid + "\"}", "UTF-8"));
             HttpResponse response = httpclient.execute(post);
         } catch (Exception e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
     }
 

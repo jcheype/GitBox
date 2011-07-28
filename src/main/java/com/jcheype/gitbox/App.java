@@ -1,38 +1,10 @@
 package com.jcheype.gitbox;
 
-import com.google.common.io.Closeables;
 import net.contentobjects.jnotify.JNotify;
 import net.contentobjects.jnotify.JNotifyListener;
 import org.apache.commons.cli.*;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.eclipse.jgit.api.Git;
-import org.eclipse.jgit.api.errors.*;
-import org.eclipse.jgit.lib.Repository;
-import org.eclipse.jgit.lib.RepositoryBuilder;
 
-import javax.management.Notification;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
-import java.sql.Time;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-
-/**
- * Hello world!
- */
 public class App {
     static {
         System.setProperty("java.library.path", ".");
@@ -75,6 +47,7 @@ public class App {
         String repo = cmd.getArgs()[0];
 
         String remote = cmd.getOptionValue("remote");
+        String remoteSha1 = AeSimpleSHA1.SHA1(remote);
 
 
         if (cmd.hasOption("clone")) {
@@ -97,7 +70,9 @@ public class App {
             }
         };
 
-        String remoteSha1 = AeSimpleSHA1.SHA1(remote);
+        if(!notifServer.endsWith("/")){
+            notifServer += "/";
+        }
         System.out.println(notifServer + remoteSha1);
         notificationClient = new NotificationClient(notifServer + remoteSha1) {
             @Override
@@ -121,12 +96,8 @@ public class App {
         boolean watchSubtree = true;
 
         int watchID = JNotify.addWatch(gitBox.getGit().getRepository().getDirectory().getParent(), mask, watchSubtree, new Listener(gitBox));
-        // sleep a little, the application will exit if you
-        // don't (watching is asynchronous), depending on your
-        // application, this may not be required
         Thread.sleep(Long.MAX_VALUE);
 
-        // to remove watch the watch
         boolean res = JNotify.removeWatch(watchID);
         if (!res) {
             System.out.println("invalid watch ID specified.");

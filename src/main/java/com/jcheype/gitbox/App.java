@@ -49,7 +49,8 @@ public class App {
         Options options = new Options();
 
         options.addOption("n", "notification", true, "set notification server url");
-        options.addOption("c", "clone", true, "set repository to clone");
+        options.addOption("r", "remote", true, "remote repository url");
+        options.addOption("c", "clone", false, "set repository to clone");
         options.addOption("h", "help", false, "print this help");
 
         CommandLineParser parser = new PosixParser();
@@ -64,11 +65,20 @@ public class App {
             showHelp(options);
             System.exit(1);
         }
+
+        if (!cmd.hasOption("remote")) {
+            System.out.println("Missing remote repository url");
+            showHelp(options);
+            System.exit(1);
+        }
+
         String repo = cmd.getArgs()[0];
 
+        String remote = cmd.getOptionValue("remote");
+
+
         if (cmd.hasOption("clone")) {
-            String cloneUrl = cmd.getOptionValue("clone");
-            GitBox.cloneGit(cloneUrl, repo);
+            GitBox.cloneGit(remote, repo);
         }
 
         if (!cmd.hasOption("notification")) {
@@ -87,7 +97,9 @@ public class App {
             }
         };
 
-        notificationClient = new NotificationClient(notifServer + gitBox.getGit().getRepository().getDirectory()) {
+        String remoteSha1 = AeSimpleSHA1.SHA1(remote);
+        System.out.println(notifServer + remoteSha1);
+        notificationClient = new NotificationClient(notifServer + remoteSha1) {
             @Override
             protected void onNotification(JsonNode rootNode) {
                 String from = rootNode.path("from").getTextValue();

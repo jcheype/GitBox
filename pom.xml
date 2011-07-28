@@ -89,9 +89,12 @@
                             <!-- Optional, use only if you need to include native libraries (dll's) -->
                             <binlibs>
                                 <fileSet>
-                                    <directory>${project.basedir}/lib</directory>
+                                    <directory>${project.basedir}/native</directory>
                                     <includes>
-                                        <include>test.dll</include>
+                                        <include>*.dll</include>
+                                        <include>*.so</include>
+                                        <include>*.dylib</include>
+                                        <include>*.jnilib</include>
                                     </includes>
                                 </fileSet>
                             </binlibs>

@@ -12,7 +12,7 @@ public class App {
     private static final org.slf4j.Logger logger = LoggerFactory.getLogger(App.class);
 
 //    static {
-//        System.setProperty("java.library.path", ".");
+//        System.setProperty("java.library.path", "./binlib");
 //    }
 
     private static NotificationClient notificationClient = null;
@@ -24,6 +24,7 @@ public class App {
     }
 
     public static void main(String[] args) throws Exception {
+        System.out.println(System.getProperty("java.library.path"));
         Options options = new Options();
 
         options.addOption("n", "notification", true, "set notification server url");

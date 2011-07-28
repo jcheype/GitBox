@@ -41,6 +41,8 @@ public class GitBox {
         initTimer();
     }
 
+
+
     public boolean checkGit() throws Exception {
         System.out.println("checkGit");
 
@@ -82,6 +84,10 @@ public class GitBox {
     public void pull() throws RefNotFoundException, DetachedHeadException, WrongRepositoryStateException, InvalidRemoteException, InvalidConfigurationException, CanceledException {
         final PullResult call = git.pull().call();
         System.out.println("pull:" + call.toString());
+    }
+
+    public static void cloneGit(String url, String repoPath){
+        Git.cloneRepository().setURI(url).setDirectory(new File(repoPath)).call();
     }
 
     public void updated() {

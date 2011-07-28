@@ -11,9 +11,9 @@ import java.io.File;
 public class App {
     private static final org.slf4j.Logger logger = LoggerFactory.getLogger(App.class);
 
-    static {
-        System.setProperty("java.library.path", ".");
-    }
+//    static {
+//        System.setProperty("java.library.path", ".");
+//    }
 
     private static NotificationClient notificationClient = null;
     private static GitBox gitBox;

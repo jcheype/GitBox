@@ -1,4 +1,4 @@
-A DropBox clone using Git (internally JGit)
+A DropBox clone using Git (internally JGit) : [(GitBox snapshot)](http://commondatastorage.googleapis.com/gitbox/gitbox-1.0-SNAPSHOT.one-jar.jar)
 
 The notification server is a simple HTTP PUSH server based on Netty, you can use the public one:
 

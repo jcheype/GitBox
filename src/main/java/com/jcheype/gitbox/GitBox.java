@@ -9,10 +9,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -29,8 +30,11 @@ public class GitBox {
     private final Git git;
     private final AtomicLong lastChange = new AtomicLong(0);
     private final AtomicBoolean shouldUpdate = new AtomicBoolean(false);
+    private final List<GitBoxListener> listeners = new ArrayList<GitBoxListener>();
     private final ScheduledExecutorService scheduler =
             Executors.newScheduledThreadPool(1);
+    private ScheduledFuture<?> schedule;
+    private int timeout = 500000;
 
 
     public GitBox(String path) throws Exception {
@@ -63,15 +67,20 @@ public class GitBox {
         return false;
     }
 
-    public void start() {
-        scheduler.scheduleAtFixedRate(new Runnable() {
+    synchronized public void start() {
+        if (schedule != null) {
+            throw new IllegalArgumentException("already started");
+        }
+        schedule = scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
                 long last = System.currentTimeMillis() - lastChange.get();
-                if ((last > 2000 && shouldUpdate.getAndSet(false)) || last > 500000) {
+                if ((last > 2000 && shouldUpdate.getAndSet(false)) || last > timeout) {
                     try {
                         if (checkGit()) {
-                            onUpdate();
+                            for (GitBoxListener listener : listeners) {
+                                listener.onUpdate();
+                            }
                         }
                     } catch (Exception e) {
                         logger.error("error on checkgit: ", e);
@@ -79,6 +88,13 @@ public class GitBox {
                 }
             }
         }, 0, 5, TimeUnit.SECONDS);
+    }
+
+    synchronized public void stop() {
+        if (schedule != null) {
+            schedule.cancel(false);
+            schedule = null;
+        }
     }
 
     public void pull() throws RefNotFoundException, DetachedHeadException, WrongRepositoryStateException, InvalidRemoteException, InvalidConfigurationException, CanceledException {
@@ -95,10 +111,22 @@ public class GitBox {
         shouldUpdate.set(true);
     }
 
-    protected void onUpdate() {
-    }
-
     public Git getGit() {
         return git;
+    }
+
+    public void addListener(GitBoxListener gitBoxListener) {
+        if (schedule != null) {
+            throw new IllegalArgumentException("cannot add listener once started");
+        }
+        listeners.add(gitBoxListener);
+    }
+
+    public int getTimeout() {
+        return timeout;
+    }
+
+    public void setTimeout(int timeout) {
+        this.timeout = timeout;
     }
 }

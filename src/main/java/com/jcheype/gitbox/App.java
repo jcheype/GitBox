@@ -1,19 +1,13 @@
 package com.jcheype.gitbox;
 
-import net.contentobjects.jnotify.JNotify;
-import net.contentobjects.jnotify.JNotifyException;
-import net.contentobjects.jnotify.JNotifyListener;
 import org.apache.commons.cli.*;
-import org.codehaus.jackson.JsonNode;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 
 public class App {
     private static final org.slf4j.Logger logger = LoggerFactory.getLogger(App.class);
-
-    private static NotificationClient notificationClient = null;
-    private static GitBox gitBox;
+    private static GitBoxController gitBoxController;
 
     private static void showHelp(Options options) {
         HelpFormatter formatter = new HelpFormatter();
@@ -75,57 +69,23 @@ public class App {
         }
         logger.info("notification URL: " + notifServer + remoteSha1);
 
-        gitBox = new GitBox(repo) {
-            @Override
-            protected void onUpdate() {
-                logger.info("onUpdate");
-                if (notificationClient != null) notificationClient.publish();
-            }
-        };
+        GitBox gitBox = new GitBox(repo);
+        NotificationClient notificationClient = new NotificationClient(notifServer + remoteSha1);
 
-        notificationClient = new NotificationClient(notifServer + remoteSha1) {
-            @Override
-            protected void onNotification(JsonNode rootNode) {
-                String from = rootNode.path("from").getTextValue();
-                logger.info("notification from: " + from);
-                if (!getUuid().equals(from)) {
-                    try {
-                        gitBox.pull();
-                    } catch (Exception e) {
-                        logger.error("cannot make pull", e);
-                    }
-                }
-            }
-        };
+        gitBoxController = new GitBoxController(notificationClient, gitBox);
+        gitBoxController.getGitBox().start();
+        gitBoxController.getNotificationClient().start();
+        gitBoxController.getGitBoxFileListener().start();
 
-        gitBox.start();
-        notificationClient.start();
-        jnotifyInit();
-
-        Thread.sleep(Long.MAX_VALUE);
-    }
-
-    private static void jnotifyInit() throws JNotifyException {
-        int mask = JNotify.FILE_CREATED |
-                JNotify.FILE_DELETED |
-                JNotify.FILE_MODIFIED |
-                JNotify.FILE_RENAMED;
-        boolean watchSubtree = true;
-
-
-        final int watchID = JNotify.addWatch(gitBox.getGit().getRepository().getDirectory().getParent(), mask, watchSubtree, new GitBoxFileListener(gitBox));
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
-                try {
-                    boolean res = JNotify.removeWatch(watchID);
-                    if (!res) {
-                        logger.error("JNotify error: invalid watch ID specified.");
-                    }
-                } catch (JNotifyException e) {
-                    logger.error("JNotify error:", e);
-                }
+                gitBoxController.getGitBox().stop();
+                gitBoxController.getNotificationClient().stop();
+                gitBoxController.getGitBoxFileListener().stop();
             }
         });
+
+        Thread.sleep(Long.MAX_VALUE);
     }
 }

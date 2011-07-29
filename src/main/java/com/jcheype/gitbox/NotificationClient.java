@@ -13,6 +13,8 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -26,6 +28,7 @@ public class NotificationClient implements Runnable {
     private final String uuid = UUID.randomUUID().toString();
     private final String notifUrl;
     private final Thread thread;
+    private final List<NotificationListener> listeners = new ArrayList<NotificationListener>();
 
     public NotificationClient(String notifUrl) {
         this.notifUrl = notifUrl;
@@ -62,7 +65,7 @@ public class NotificationClient implements Runnable {
     @Override
     public void run() {
         try {
-            while (!this.thread.isInterrupted()) {
+            while (!thread.isInterrupted()) {
                 waitNotification();
             }
         } catch (InterruptedException e) {
@@ -85,10 +88,31 @@ public class NotificationClient implements Runnable {
         }
     }
 
-    protected void onNotification(JsonNode rootNode) {
+    private void onNotification(JsonNode rootNode) {
+        String from = rootNode.path("from").getTextValue();
+        if (!getUuid().equals(from)) {
+            logger.info("notification from: " + from);
+            for (NotificationListener listener : listeners) {
+                listener.onNotification(rootNode);
+            }
+        } else {
+            logger.info("notification from: me");
+        }
+
+    }
+
+    public void addListener(NotificationListener listener) {
+        if (this.thread.isAlive()) {
+            throw new IllegalArgumentException("cannot add listener once started");
+        }
+        listeners.add(listener);
     }
 
     public String getUuid() {
         return uuid;
+    }
+
+    public void stop() {
+        thread.interrupt();
     }
 }

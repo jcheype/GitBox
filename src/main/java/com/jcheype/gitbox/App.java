@@ -1,6 +1,7 @@
 package com.jcheype.gitbox;
 
 import net.contentobjects.jnotify.JNotify;
+import net.contentobjects.jnotify.JNotifyException;
 import net.contentobjects.jnotify.JNotifyListener;
 import org.apache.commons.cli.*;
 import org.codehaus.jackson.JsonNode;
@@ -20,7 +21,6 @@ public class App {
     }
 
     public static void main(String[] args) throws Exception {
-        System.out.println(System.getProperty("java.library.path"));
         Options options = new Options();
 
         options.addOption("n", "notification", true, "set notification server url");
@@ -70,8 +70,11 @@ public class App {
             System.exit(1);
         }
         String notifServer = cmd.getOptionValue("notification");
+        if (!notifServer.endsWith("/")) {
+            notifServer += "/";
+        }
+        logger.info("notification URL: " + notifServer + remoteSha1);
 
-        logger.info("notifServer: " + notifServer);
         gitBox = new GitBox(repo) {
             @Override
             protected void onUpdate() {
@@ -80,10 +83,6 @@ public class App {
             }
         };
 
-        if (!notifServer.endsWith("/")) {
-            notifServer += "/";
-        }
-        logger.info(notifServer + remoteSha1);
         notificationClient = new NotificationClient(notifServer + remoteSha1) {
             @Override
             protected void onNotification(JsonNode rootNode) {
@@ -101,64 +100,32 @@ public class App {
 
         gitBox.start();
         notificationClient.start();
+        jnotifyInit();
 
+        Thread.sleep(Long.MAX_VALUE);
+    }
+
+    private static void jnotifyInit() throws JNotifyException {
         int mask = JNotify.FILE_CREATED |
                 JNotify.FILE_DELETED |
                 JNotify.FILE_MODIFIED |
                 JNotify.FILE_RENAMED;
         boolean watchSubtree = true;
 
-        int watchID = JNotify.addWatch(gitBox.getGit().getRepository().getDirectory().getParent(), mask, watchSubtree, new Listener(gitBox));
-        Thread.sleep(Long.MAX_VALUE);
 
-        boolean res = JNotify.removeWatch(watchID);
-        if (!res) {
-            logger.error("invalid watch ID specified.");
-        }
-    }
-
-    static class Listener implements JNotifyListener {
-        private final GitBox gitBox;
-
-        public Listener(GitBox gitBox) {
-            this.gitBox = gitBox;
-        }
-
-        synchronized public void fileRenamed(int wd, String rootPath, String oldName,
-                                             String newName) {
-            if (oldName.startsWith(".git")) {
-                return;
+        final int watchID = JNotify.addWatch(gitBox.getGit().getRepository().getDirectory().getParent(), mask, watchSubtree, new GitBoxFileListener(gitBox));
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                try {
+                    boolean res = JNotify.removeWatch(watchID);
+                    if (!res) {
+                        logger.error("JNotify error: invalid watch ID specified.");
+                    }
+                } catch (JNotifyException e) {
+                    logger.error("JNotify error:", e);
+                }
             }
-            String msg = "renamed: " + oldName + " -> " + newName;
-            logger.debug(msg);
-            gitBox.updated();
-        }
-
-        synchronized public void fileModified(int wd, String rootPath, String name) {
-            if (name.startsWith(".git")) {
-                return;
-            }
-            String msg = "modified: " + name;
-            logger.debug(msg);
-            gitBox.updated();
-        }
-
-        synchronized public void fileDeleted(int wd, String rootPath, String name) {
-            if (name.startsWith(".git")) {
-                return;
-            }
-            String msg = "deleted: " + name;
-            logger.debug(msg);
-            gitBox.updated();
-        }
-
-        synchronized public void fileCreated(int wd, String rootPath, String name) {
-            if (name.startsWith(".git")) {
-                return;
-            }
-            String msg = "created: " + name;
-            logger.debug(msg);
-            gitBox.updated();
-        }
+        });
     }
 }

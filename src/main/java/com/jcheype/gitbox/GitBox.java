@@ -11,6 +11,9 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -24,9 +27,10 @@ public class GitBox {
     private static final Logger logger = LoggerFactory.getLogger(GitBox.class);
 
     private final Git git;
-    private final static AtomicLong lastChange = new AtomicLong(0);
-    private final static AtomicBoolean shouldUpdate = new AtomicBoolean(false);
-    private final static Timer timer = new Timer();
+    private final AtomicLong lastChange = new AtomicLong(0);
+    private final AtomicBoolean shouldUpdate = new AtomicBoolean(false);
+    private final ScheduledExecutorService scheduler =
+            Executors.newScheduledThreadPool(1);
 
 
     public GitBox(String path) throws Exception {
@@ -60,10 +64,11 @@ public class GitBox {
     }
 
     public void start() {
-        TimerTask task = new TimerTask() {
+        scheduler.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
-                if ((System.currentTimeMillis() - lastChange.get()) > 2000 && shouldUpdate.getAndSet(false)) {
+                long last = System.currentTimeMillis() - lastChange.get();
+                if ((last > 2000 && shouldUpdate.getAndSet(false)) || last > 500000) {
                     try {
                         if (checkGit()) {
                             onUpdate();
@@ -73,9 +78,7 @@ public class GitBox {
                     }
                 }
             }
-        };
-
-        timer.scheduleAtFixedRate(task, 1000, 1000);
+        }, 0, 5, TimeUnit.SECONDS);
     }
 
     public void pull() throws RefNotFoundException, DetachedHeadException, WrongRepositoryStateException, InvalidRemoteException, InvalidConfigurationException, CanceledException {

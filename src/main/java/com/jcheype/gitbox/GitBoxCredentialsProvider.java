@@ -1,6 +1,5 @@
 package com.jcheype.gitbox;
 
-import com.sun.xml.internal.bind.v2.model.core.ID;
 import org.eclipse.jgit.errors.UnsupportedCredentialItem;
 import org.eclipse.jgit.transport.CredentialItem;
 import org.eclipse.jgit.transport.CredentialsProvider;

@@ -1,10 +1,15 @@
 package com.jcheype.gitbox;
 
+import com.sun.istack.internal.Nullable;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.PullResult;
 import org.eclipse.jgit.api.errors.*;
+import org.eclipse.jgit.errors.UnsupportedCredentialItem;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.lib.RepositoryBuilder;
+import org.eclipse.jgit.transport.CredentialItem;
+import org.eclipse.jgit.transport.CredentialsProvider;
+import org.eclipse.jgit.transport.URIish;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -103,7 +108,11 @@ public class GitBox {
     }
 
     public static void cloneGit(String url, File repoPath) {
-        Git.cloneRepository().setURI(url).setDirectory(repoPath).call();
+        cloneGit(url, repoPath, null);
+    }
+
+    public static void cloneGit(String url, File repoPath, @Nullable CredentialsProvider credentialsProvider) {
+        Git.cloneRepository().setCredentialsProvider(credentialsProvider).setURI(url).setDirectory(repoPath).call();
     }
 
     public void updated() {

@@ -1,6 +1,10 @@
 package com.jcheype.gitbox;
 
 import org.apache.commons.cli.*;
+import org.eclipse.jgit.errors.UnsupportedCredentialItem;
+import org.eclipse.jgit.transport.CredentialItem;
+import org.eclipse.jgit.transport.CredentialsProvider;
+import org.eclipse.jgit.transport.URIish;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
@@ -49,9 +53,9 @@ public class App {
 
         if (cmd.hasOption("clone")) {
             File repoFile = new File(repo);
-            if (repoFile.exists())
-                GitBox.cloneGit(remote, repoFile);
-            else {
+            if (repoFile.exists()) {
+                GitBox.cloneGit(remote, repoFile, new GitBoxCredentialsProvider());
+            } else {
                 System.err.println("REPO_FOLDER must exist");
                 showHelp(options);
                 System.exit(1);

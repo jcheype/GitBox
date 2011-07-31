@@ -11,7 +11,7 @@ import org.eclipse.jgit.transport.URIish;
 public class GitBoxCredentialsProvider extends CredentialsProvider {
     @Override
     public boolean isInteractive() {
-        return false;
+        return true;
     }
 
     @Override

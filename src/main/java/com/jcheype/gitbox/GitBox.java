@@ -74,6 +74,9 @@ public class GitBox {
         return false;
     }
 
+    public boolean isStarted(){
+        return schedule != null;
+    }
     synchronized public void start() {
         if (schedule != null) {
             throw new IllegalArgumentException("already started");

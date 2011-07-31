@@ -5,6 +5,7 @@ import org.eclipse.jgit.api.PullResult;
 import org.eclipse.jgit.api.errors.*;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.lib.RepositoryBuilder;
+import org.eclipse.jgit.transport.CredentialsProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +29,7 @@ public class GitBox {
     private static final Logger logger = LoggerFactory.getLogger(GitBox.class);
 
     private final Git git;
+    private final CredentialsProvider credentialsProvider;
     private final AtomicLong lastChange = new AtomicLong(0);
     private final AtomicBoolean shouldUpdate = new AtomicBoolean(false);
     private final List<GitBoxListener> listeners = new ArrayList<GitBoxListener>();
@@ -37,15 +39,20 @@ public class GitBox {
     private int timeout = 500000;
 
 
-    public GitBox(String path) throws Exception {
+    public GitBox(String path, CredentialsProvider credentialsProvider) throws Exception {
         RepositoryBuilder builder = new RepositoryBuilder();
         Repository repository = builder.setWorkTree(new File(path))
                 .readEnvironment() // scan environment GIT_* variables
                 .findGitDir(new File(path)) // scan up the file system tree
                 .build();
 
-        git = new Git(repository);
+        this.git = new Git(repository);
+        this.credentialsProvider=credentialsProvider;
         pull();
+    }
+
+    public GitBox(String path) throws Exception {
+        this(path, null);
     }
 
     public boolean checkGit() throws Exception {
@@ -60,13 +67,16 @@ public class GitBox {
             logger.info("change detected");
             git.add().addFilepattern(".").call();
             git.commit().setAll(true).setMessage("change").call();
-            git.pull().call();
-            git.push().call();
+            git.pull().setCredentialsProvider(credentialsProvider).call();
+            git.push().setCredentialsProvider(credentialsProvider).call();
             return true;
         }
         return false;
     }
 
+    public boolean isStarted(){
+        return schedule != null;
+    }
     synchronized public void start() {
         if (schedule != null) {
             throw new IllegalArgumentException("already started");
@@ -98,12 +108,16 @@ public class GitBox {
     }
 
     public void pull() throws RefNotFoundException, DetachedHeadException, WrongRepositoryStateException, InvalidRemoteException, InvalidConfigurationException, CanceledException {
-        final PullResult call = git.pull().call();
+        final PullResult call = git.pull().setCredentialsProvider(credentialsProvider).call();
         logger.debug("pull:" + call.toString());
     }
 
     public static void cloneGit(String url, File repoPath) {
-        Git.cloneRepository().setURI(url).setDirectory(repoPath).call();
+        cloneGit(url, repoPath, null);
+    }
+
+    public static void cloneGit(String url, File repoPath, CredentialsProvider credentialsProvider) {
+        Git.cloneRepository().setCredentialsProvider(credentialsProvider).setURI(url).setDirectory(repoPath).call();
     }
 
     public void updated() {
